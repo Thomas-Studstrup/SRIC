@@ -1,0 +1,28 @@
+Start med at gå i SRIC_alt mappen og skriv:
+python -m app.db.init_db
+
+Aktiver miljø:
+venv\Scripts\activate
+
+Start app:
+uvicorn main:app --reload
+
+Start db
+cd c:\Users\studs\SRIC_alt\app; c:/Users/studs/SRIC_alt/app/venv/Scripts/python.exe db/init_db.py
+
+Test bruger:
+{
+  "username": "admin1",
+  "password": "hemmeligt123",
+  "role": "admin"
+}
+
+Fra frontend mappe:
+npm create vite@latest . -- --template react
+remove existing files and continue
+React
+JavaScript
+npm install
+
+For at starte:
+npm run dev

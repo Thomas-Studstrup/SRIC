@@ -1,0 +1,27 @@
+# Python
+venv/
+__pycache__/
+*.py[cod]
+*.sqlite3
+*.log
+*.db
+*.json
+*.pkl
+
+# FastAPI + Chroma
+/models/*.gguf
+/data/chroma/*
+
+
+# Node + React
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# VS Code
+.vscode/
+
+# OS og IDE
+.DS_Store
+.idea/
+*.swp

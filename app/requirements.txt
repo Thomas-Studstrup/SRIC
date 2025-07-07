@@ -1,0 +1,20 @@
+fastapi
+uvicorn[standard]
+llama-cpp-python
+sentence-transformers==2.2.2
+huggingface-hub==0.19.4
+chromadb
+python-docx
+python-magic-bin
+PyPDF2
+openpyxl
+pytesseract
+pdf2image
+poppler-utils
+docx2txt
+langchain
+langchain-community
+langchain unstructured
+python-jose[cryptography]
+passlib[bcrypt]
+python-multipart
