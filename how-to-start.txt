@@ -1,14 +1,16 @@
-Start med at gå i SRIC_alt mappen og skriv:
-python -m app.db.init_db
+Start med at gå i SRIC\app mappen og skriv:
 
 Aktiver miljø:
 venv\Scripts\activate
 
+Installer dependencies (hvis ikke gjort):
+python -m pip install -r requirements.txt      
+
+Start database:
+python db/init_db.py
+
 Start app:
 uvicorn main:app --reload
-
-Start db
-cd c:\Users\studs\SRIC_alt\app; c:/Users/studs/SRIC_alt/app/venv/Scripts/python.exe db/init_db.py
 
 Test bruger:
 {

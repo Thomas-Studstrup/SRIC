@@ -14,7 +14,7 @@ poppler-utils
 docx2txt
 langchain
 langchain-community
-langchain unstructured
+unstructured
 python-jose[cryptography]
 passlib[bcrypt]
 python-multipart
