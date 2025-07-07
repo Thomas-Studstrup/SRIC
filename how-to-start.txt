@@ -8,6 +8,7 @@ python -m pip install -r requirements.txt
 
 Start database:
 python db/init_db.py
+.\venv\Scripts\python.exe -m db.init_db
 
 Start app:
 uvicorn main:app --reload
@@ -20,11 +21,36 @@ Test bruger:
 }
 
 Fra frontend mappe:
-npm create vite@latest . -- --template react
-remove existing files and continue
-React
-JavaScript
-npm install
+npm install (første gang)
 
-For at starte:
+For at starte frontend:
 npm run dev
+
+FRONTEND FEATURES:
+✅ Bruger registrering og login
+✅ Beskyttede ruter (kræver login)
+✅ Chat oprettelse og sletning
+✅ Kontekstuel samtale med historik
+✅ Responsivt design
+✅ Real-time messaging med kilder
+✅ Brugerspecifik chat-historik
+
+SÅDAN BRUGES DET:
+1. Åbn http://localhost:5173
+2. Opret en konto eller log ind
+3. Opret en ny chat
+4. Stil spørgsmål og få kontekstuelle svar
+
+NYE CHAT API ENDPOINTS:
+- POST /chats/ - Opret ny chat
+- GET /chats/ - Hent alle brugerens chats  
+- GET /chats/{chat_id} - Hent chat med beskeder
+- POST /chats/{chat_id}/message - Send besked med kontekst
+- DELETE /chats/{chat_id} - Slet chat
+
+EKSEMPEL PÅ KONTEKSTUEL CHAT:
+Spørgsmål 1: "Hvem er kunden på police nr 1001?"
+Spørgsmål 2: "Hvad dækker den?" (systemet forstår "den" = police 1001)
+
+Chat-historik gemmes per bruger i databasen.
+Systemet bruger de sidste 5 beskeder som kontekst for nye spørgsmål.

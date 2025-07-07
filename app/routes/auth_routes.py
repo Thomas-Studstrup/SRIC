@@ -11,6 +11,7 @@ from services.auth_service import (
     create_access_token,
     get_password_hash
 )
+from controllers.auth_controller import get_current_user
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
@@ -55,3 +56,10 @@ def register_user(
     db.commit()
     db.refresh(new_user)
     return new_user
+
+# 👤 GET CURRENT USER
+@router.get("/me", response_model=UserResponse)
+def get_current_user_info(
+    current_user: User = Depends(get_current_user)
+):
+    return current_user

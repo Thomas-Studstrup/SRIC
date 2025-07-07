@@ -9,32 +9,39 @@ model = SentenceTransformer("all-MiniLM-L6-v2")
 client = chromadb.PersistentClient(path=PERSIST_DIR)
 collection = client.get_or_create_collection(name=CHROMA_COLLECTION_NAME)
 
-def retrieve_similar_chunks(query: str, k: int = 5):
+def retrieve_similar_chunks(query: str, top_k: int = 5):
     print(f"🔷 vector_store: Søger efter chunks for query: '{query}'")
-    print(f"🔷 vector_store: k={k}")
+    print(f"🔷 vector_store: top_k={top_k}")
     
     try:
         embedding = model.encode(query).tolist() # type: ignore
         print(f"🔷 vector_store: Embedding oprettet (dimension: {len(embedding)})")
         
-        results = collection.query(query_embeddings=[embedding], n_results=k)
+        # Include distances in the query to get relevance scores
+        results = collection.query(
+            query_embeddings=[embedding], 
+            n_results=top_k,
+            include=['documents', 'metadatas', 'distances']
+        )
         print(f"🔷 vector_store: Collection query udført")
         print(f"🔷 vector_store: Results type: {type(results)}")
         print(f"🔷 vector_store: Results keys: {results.keys() if results else 'None'}")
         
         if results and 'documents' in results:
             docs = results['documents']
+            distances = results.get('distances', [[]])
             print(f"🔷 vector_store: Documents struktur: {type(docs)}")
             print(f"🔷 vector_store: Antal document grupper: {len(docs) if docs else 0}")
             if docs and len(docs) > 0:
                 print(f"🔷 vector_store: Antal dokumenter i første gruppe: {len(docs[0])}")
+                print(f"🔷 vector_store: Distances: {distances[0] if distances and distances[0] else 'Ingen distances'}")
                 if docs[0]:
                     print(f"🔷 vector_store: Første dokument (100 chars): {docs[0][0][:100]}...")
         
         return results
     except Exception as e:
         print(f"🔴 vector_store: Fejl i retrieve_similar_chunks: {e}")
-        return {"documents": [[]]}
+        return {"documents": [[]], "metadatas": [[]], "distances": [[]]}
 
 def embed_and_store(text: str, metadata: dict):
     if not text.strip():

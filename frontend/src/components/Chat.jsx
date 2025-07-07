@@ -1,214 +1,258 @@
-import { useState } from 'react'
+import React, { useState, useEffect, useRef } from 'react';
+import { chatAPI } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 
-function Chat() {
-  const [input, setInput] = useState('')
-  const [messages, setMessages] = useState([])
+const Chat = () => {
+  const [chats, setChats] = useState([]);
+  const [activeChat, setActiveChat] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [newChatTitle, setNewChatTitle] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [showNewChatForm, setShowNewChatForm] = useState(false);
+  const messagesEndRef = useRef(null);
 
-  const validateMessage = (message) => {
-    const trimmed = message.trim().toLowerCase()
-    
-    // Check for minimum length
-    if (trimmed.length < 5) {
-      return { valid: false, error: "Dit spørgsmål er for kort. Vær mere specifik." }
+  const { user, logout } = useAuth();
+
+  useEffect(() => {
+    loadChats();
+  }, []);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const loadChats = async () => {
+    try {
+      const chatList = await chatAPI.getChats();
+      setChats(chatList);
+    } catch (error) {
+      console.error('Failed to load chats:', error);
     }
-    
-    // Check for insurance-related content
-    const insuranceTerms = [
-      'forsikring', 'police', 'dækning', 'betingelser', 'præmie', 
-      'selvrisiko', 'topdanmark', 'tryg', 'cna', 'hdi', 'selskab',
-      'erstatning', 'skade', 'vilkår', 'sammenlign', 'forskelle'
-    ]
-    
-    const hasInsuranceTerms = insuranceTerms.some(term => trimmed.includes(term))
-    
-    if (!hasInsuranceTerms) {
-      return { 
-        valid: false, 
-        error: "Dit spørgsmål skal relatere til forsikring. Nævn forsikringsselskaber, policer eller sammenligning af forsikringer." 
-      }
-    }
-    
-    // Check for overly vague questions
-    const vaguePhrases = ['hvad med', 'fortæl om', 'generelt', 'alt om', 'hej', 'hallo']
-    const isVague = vaguePhrases.some(phrase => trimmed.startsWith(phrase))
-    
-    if (isVague) {
-      return { 
-        valid: false, 
-        error: "Dit spørgsmål er for vagt. Stil et specifikt spørgsmål om forsikring eller sammenligning." 
-      }
-    }
-    
-    return { valid: true }
-  }
+  };
 
-  const sendMessage = async () => {
-    if (!input.trim()) return
-
-    console.log('🔵 Frontend: Sender besked:', input)
-    
-    // Validate message before sending
-    const validation = validateMessage(input)
-    if (!validation.valid) {
-      const errorMessage = { 
-        sender: 'bot', 
-        text: `❌ ${validation.error}`,
-        isError: true 
-      }
-      setMessages(prev => [...prev, { sender: 'user', text: input }, errorMessage])
-      setInput('')
-      return
+  const selectChat = async (chat) => {
+    setActiveChat(chat);
+    try {
+      const chatData = await chatAPI.getChat(chat.id);
+      setMessages(chatData.messages || []);
+    } catch (error) {
+      console.error('Failed to load chat messages:', error);
     }
-    
-    const userMessage = { sender: 'user', text: input }
-    setMessages(prev => [...prev, userMessage])
+  };
 
-    setInput('')
+  const createNewChat = async (e) => {
+    e.preventDefault();
+    if (!newChatTitle.trim()) return;
+
+    console.log('🔄 Opretter ny chat med titel:', newChatTitle);
+    
+    try {
+      const newChat = await chatAPI.createChat(newChatTitle);
+      console.log('✅ Chat oprettet succesfuldt:', newChat);
+      setChats([newChat, ...chats]);
+      setNewChatTitle('');
+      setShowNewChatForm(false);
+      selectChat(newChat);
+    } catch (error) {
+      console.error('❌ Fejl ved oprettelse af chat:', error);
+      console.error('Error details:', error.response?.data);
+      alert(`Fejl ved oprettelse af chat: ${error.response?.data?.detail || error.message}`);
+    }
+  };
+
+  const sendMessage = async (e) => {
+    e.preventDefault();
+    if (!newMessage.trim() || !activeChat) return;
+
+    console.log('📤 Sender besked:', newMessage, 'til chat:', activeChat.id);
+
+    const userMessage = {
+      role: 'user',
+      content: newMessage,
+      created_at: new Date().toISOString(),
+    };
+
+    setMessages(prev => [...prev, userMessage]);
+    setNewMessage('');
+    setLoading(true);
 
     try {
-      const requestBody = { message: input }
-      console.log('🔵 Frontend: Request body:', requestBody)
-      console.log('🔵 Frontend: Sender til URL:', 'http://localhost:8000/ask')
-      
-      const response = await fetch('http://localhost:8000/ask', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody)
-      })
-
-      console.log('🔵 Frontend: Response status:', response.status)
-      console.log('🔵 Frontend: Response headers:', response.headers)
-      
-      const data = await response.json()
-      console.log('🔵 Frontend: Svar fra server (rå data):', data)
-      console.log('🔵 Frontend: Type af svar:', typeof data)
-      console.log('🔵 Frontend: data.answer:', data.answer)
-      
-      // Check if backend returned an error/validation message
-      if (data.error) {
-        const errorMessage = { 
-          sender: 'bot', 
-          text: `❌ ${data.error}`,
-          isError: true 
-        }
-        setMessages(prev => [...prev, errorMessage])
-        return
-      }
-      
-      // Håndter forskellige typer af svar
-      let displayText = data.answer || data.result || '[Ingen svar]'
-      
-      // Check for specific "I don't understand" responses from backend
-      if (displayText.toLowerCase().includes('jeg forstår ikke') || 
-          displayText.toLowerCase().includes('kan ikke besvare') ||
-          displayText.toLowerCase().includes('ugyldigt spørgsmål')) {
-        const clarificationMessage = { 
-          sender: 'bot', 
-          text: `${displayText}\n\n💡 Prøv at stille et mere specifikt spørgsmål om forsikring eller sammenligning af forsikringsselskaber.`,
-          isError: true 
-        }
-        setMessages(prev => [...prev, clarificationMessage])
-        return
-      }
-      
-      // Check for repetitive content and warn user
-      if (displayText.length > 1000) {
-        const lines = displayText.split('\n')
-        const uniqueLines = new Set(lines.filter(line => line.trim().length > 10))
-        const repetitionRatio = (lines.length - uniqueLines.size) / lines.length
-        
-        if (repetitionRatio > 0.3) {
-          console.log('🔵 Frontend: Repetitivt indhold detekteret')
-          displayText += '\n\n⚠️ Bemærk: Svaret indeholder muligvis gentagelser. Dette kan skyldes model-begrænsninger.'
-        }
-      }
-      
-      // Hvis det er en sammenligning, vis ekstra info
-      if (data.type === 'compare') {
-        const subtype = data.subtype || 'sammenligning'
-        const prefix = `📊 ${subtype.replace('_', ' ').toUpperCase()}\n\n`
-        displayText = prefix + displayText
-        
-        // Vis antal kilder hvis tilgængelig
-        if (data.sources_count) {
-          displayText += `\n\n📚 Baseret på ${data.sources_count} kilder`
-        }
-      }
-
-      const assistantMessage = { sender: 'assistant', text: displayText }
-      setMessages(prev => [...prev, assistantMessage])
+      const response = await chatAPI.sendMessage(activeChat.id, newMessage);
+      console.log('✅ Besked sendt, svar modtaget:', response);
+      setMessages(prev => [...prev, response.message]);
     } catch (error) {
-      console.error('🔴 Frontend: Fejl ved afsendelse:', error)
-      const errorMessage = { sender: 'assistant', text: `Fejl: ${error.message}` }
-      setMessages(prev => [...prev, errorMessage])
+      console.error('❌ Fejl ved sending af besked:', error);
+      console.error('Error details:', error.response?.data);
+      alert(`Fejl ved sending af besked: ${error.response?.data?.detail || error.message}`);
+      setMessages(prev => prev.slice(0, -1)); // Remove user message on error
+    } finally {
+      setLoading(false);
     }
-  }
+  };
+
+  const deleteChat = async (chatId) => {
+    if (!confirm('Er du sikker på, at du vil slette denne chat?')) return;
+
+    try {
+      await chatAPI.deleteChat(chatId);
+      setChats(chats.filter(chat => chat.id !== chatId));
+      if (activeChat?.id === chatId) {
+        setActiveChat(null);
+        setMessages([]);
+      }
+    } catch (error) {
+      console.error('Failed to delete chat:', error);
+    }
+  };
+
+  const formatTime = (timestamp) => {
+    return new Date(timestamp).toLocaleTimeString('da-DK', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
 
   return (
-    <div>
-      <div style={{ 
-        border: '1px solid #ccc', 
-        padding: '10px', 
-        minHeight: '300px', 
-        marginBottom: '10px',
-        maxHeight: '500px',
-        overflowY: 'auto'
-      }}>
-        {messages.map((msg, idx) => (
-          <div key={idx} style={{ 
-            textAlign: msg.sender === 'user' ? 'right' : 'left',
-            marginBottom: '10px',
-            padding: '8px',
-            backgroundColor: msg.sender === 'user' ? '#e3f2fd' : '#f5f5f5',
-            borderRadius: '8px',
-            maxWidth: '80%',
-            marginLeft: msg.sender === 'user' ? 'auto' : '0',
-            marginRight: msg.sender === 'user' ? '0' : 'auto'
-          }}>
-            <strong style={{ color: msg.sender === 'user' ? '#1976d2' : '#388e3c' }}>
-              {msg.sender === 'user' ? '👤 Du' : '🤖 Assistent'}:
-            </strong> 
-            <div style={{ 
-              marginTop: '5px', 
-              whiteSpace: 'pre-wrap',
-              lineHeight: '1.4'
-            }}>
-              {msg.text}
-            </div>
-          </div>
-        ))}
-      </div>
+    <div className="chat-container">
+      <header className="chat-header">
+        <h1>SRIC Chat System</h1>
+        <div className="user-info">
+          <span>Velkommen, {user?.username}</span>
+          <button onClick={logout} className="logout-btn">Log ud</button>
+        </div>
+      </header>
 
-      <div style={{ display: 'flex', gap: '10px' }}>
-        <input
-          type="text"
-          value={input}
-          onChange={e => setInput(e.target.value)}
-          onKeyPress={e => e.key === 'Enter' && sendMessage()}
-          placeholder="Skriv din besked (prøv: 'sammenlign Tryg og Topdanmark')"
-          style={{ 
-            flex: 1,
-            padding: '10px',
-            borderRadius: '5px',
-            border: '1px solid #ccc'
-          }}
-        />
-        <button 
-          onClick={sendMessage}
-          style={{
-            padding: '10px 20px',
-            backgroundColor: '#1976d2',
-            color: 'white',
-            border: 'none',
-            borderRadius: '5px',
-            cursor: 'pointer'
-          }}
-        >
-          Send
-        </button>
+      <div className="chat-layout">
+        {/* Sidebar with chat list */}
+        <div className="chat-sidebar">
+          <div className="sidebar-header">
+            <h3>Mine Chats</h3>
+            <button 
+              onClick={() => setShowNewChatForm(true)}
+              className="new-chat-btn"
+            >
+              + Ny Chat
+            </button>
+          </div>
+
+          {showNewChatForm && (
+            <form onSubmit={createNewChat} className="new-chat-form">
+              <input
+                type="text"
+                value={newChatTitle}
+                onChange={(e) => setNewChatTitle(e.target.value)}
+                placeholder="Chat titel..."
+                autoFocus
+              />
+              <div className="form-buttons">
+                <button type="submit">Opret</button>
+                <button 
+                  type="button" 
+                  onClick={() => setShowNewChatForm(false)}
+                >
+                  Annuller
+                </button>
+              </div>
+            </form>
+          )}
+
+          <div className="chat-list">
+            {chats.map((chat) => (
+              <div
+                key={chat.id}
+                className={`chat-item ${activeChat?.id === chat.id ? 'active' : ''}`}
+                onClick={() => selectChat(chat)}
+              >
+                <div className="chat-title">{chat.title}</div>
+                <div className="chat-meta">
+                  {new Date(chat.created_at).toLocaleDateString('da-DK')}
+                </div>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    deleteChat(chat.id);
+                  }}
+                  className="delete-chat-btn"
+                >
+                  🗑️
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Main chat area */}
+        <div className="chat-main">
+          {activeChat ? (
+            <>
+              <div className="chat-messages">
+                {messages.map((message, index) => (
+                  <div
+                    key={index}
+                    className={`message ${message.role === 'user' ? 'user-message' : 'assistant-message'}`}
+                  >
+                    <div className="message-content">
+                      <div className="message-text">{message.content}</div>
+                      <div className="message-time">
+                        {formatTime(message.created_at)}
+                      </div>
+                    </div>
+                    {message.sources && (
+                      <div className="message-sources">
+                        <strong>Kilder:</strong> {JSON.parse(message.sources).join(', ')}
+                      </div>
+                    )}
+                  </div>
+                ))}
+                {loading && (
+                  <div className="message assistant-message">
+                    <div className="message-content">
+                      <div className="typing-indicator">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                <div ref={messagesEndRef} />
+              </div>
+
+              <form onSubmit={sendMessage} className="message-form">
+                <input
+                  type="text"
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  placeholder="Skriv dit spørgsmål her..."
+                  disabled={loading}
+                />
+                <button type="submit" disabled={loading || !newMessage.trim()}>
+                  Send
+                </button>
+              </form>
+            </>
+          ) : (
+            <div className="no-chat-selected">
+              <h3>Vælg en chat eller opret en ny</h3>
+              <p>Systemet kan besvare spørgsmål baseret på tidligere samtaler.</p>
+              <div className="example-questions">
+                <h4>Eksempel på kontekstuelle spørgsmål:</h4>
+                <ul>
+                  <li><strong>Spørgsmål 1:</strong> "Hvem er kunden på police nr 1001?"</li>
+                  <li><strong>Spørgsmål 2:</strong> "Hvad dækker den?" (systemet forstår "den" = police 1001)</li>
+                </ul>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
-  )
-}
+  );
+};
 
-export default Chat
+export default Chat;

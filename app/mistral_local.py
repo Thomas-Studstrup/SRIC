@@ -100,9 +100,10 @@ def _validate_context_and_question(question: str, context: str) -> tuple[bool, s
     return True, ""
 
 def _validate_answer_quality(answer: str, question: str) -> tuple[bool, str]:
-    """Validerer om det genererede svar er af tilstrækkelig kvalitet for alle typer spørgsmål."""
+    """Validerer om det genererede svar er af tilstrækkelig kvalitet - nu mere tilladende for korte, præcise svar."""
     
-    if not answer or len(answer.strip()) < 15:
+    # Meget mere tilladende længde check - acceptér korte, præcise svar
+    if not answer or len(answer.strip()) < 8:
         return False, "Svaret er for kort eller tomt."
     
     answer_lower = answer.lower()
@@ -117,61 +118,135 @@ def _validate_answer_quality(answer: str, question: str) -> tuple[bool, str]:
     if any(indicator in answer_lower for indicator in uncertainty_indicators):
         return False, "LLM indikerede selv usikkerhed eller manglende information."
     
-    # Check for meaningless repetition
+    # Check for meaningless repetition - kun for længere svar
     words = answer.split()
-    if len(words) > 30:  # Øget fra 20 til 30
+    if len(words) > 50:  # Kun check repetition for længere svar
         unique_words = set(words)
         repetition_ratio = len(unique_words) / len(words)
-        if repetition_ratio < 0.2:  # Reduceret fra 25% til 20%
+        if repetition_ratio < 0.15:  # Endnu mere tilladende
             return False, "Svaret indeholder for mange gentagelser."
     
-    # Check for repeated phrases/sentences - mere tilladende
-    sentences = [s.strip() for s in answer.split('.') if len(s.strip()) > 15]  # Øget min længde
-    if len(sentences) > 8:  # Øget fra 5 til 8
+    # Check for repeated phrases/sentences - kun for meget lange svar
+    sentences = [s.strip() for s in answer.split('.') if len(s.strip()) > 20]
+    if len(sentences) > 12:  # Kun check for meget lange svar
         unique_sentences = set(sentences)
         sentence_repetition = len(unique_sentences) / len(sentences)
-        if sentence_repetition < 0.4:  # Reduceret fra 60% til 40%
+        if sentence_repetition < 0.3:  # Meget tilladende
             return False, "Svaret indeholder for mange gentagede sætninger."
     
-    # Check if answer actually addresses the question type
+    # For comparison questions - mere tilladende check
     question_lower = question.lower()
     
-    # For comparison questions
     if any(term in question_lower for term in ["sammenlign", "forskelle", "difference", "versus", "vs"]):
         comparison_indicators = [
             "forskelle", "ligheder", "versus", "vs", "modsat", "sammenlignet",
             "derimod", "hvorimod", "til forskel", "forskellige", "bedre", "værre"
         ]
         
-        if not any(indicator in answer_lower for indicator in comparison_indicators):
+        # Kun check for sammenligning hvis svaret er længere end 20 ord
+        if len(words) > 20 and not any(indicator in answer_lower for indicator in comparison_indicators):
             return False, "Svaret adresserer ikke den ønskede sammenligning."
     
-    # For general insurance questions, check if answer contains relevant information
-    insurance_response_terms = [
-        "forsikring", "police", "dækning", "præmie", "selvrisiko",
-        "betingelser", "erstatning", "skade", "vilkår"
+    # For simple spørgsmål som "hvem er kunden", acceptér svar uden forsikringstermer
+    simple_question_patterns = [
+        "hvem er", "hvad er", "hvor", "hvilken", "hvornår", "kunde", "police nr"
     ]
+    is_simple_question = any(pattern in question_lower for pattern in simple_question_patterns)
     
-    if not any(term in answer_lower for term in insurance_response_terms):
-        return False, "Svaret indeholder ikke relevante forsikringsoplysninger."
+    if not is_simple_question:
+        # Kun kræv forsikringstermer for komplekse spørgsmål
+        insurance_response_terms = [
+            "forsikring", "police", "dækning", "præmie", "selvrisiko",
+            "betingelser", "erstatning", "skade", "vilkår", "kunde", "kundenummer"
+        ]
+        
+        if not any(term in answer_lower for term in insurance_response_terms):
+            return False, "Svaret indeholder ikke relevante forsikringsoplysninger."
     
-    # Check for generic/templated responses that don't add value
-    generic_phrases = [
-        "det afhænger af", "det kan variere", "kontakt din forsikring",
-        "læs betingelserne", "det er vigtigt at", "husk at tjekke"
-    ]
+    # Check for generic/templated responses - kun for længere svar
+    if len(words) > 30:  # Kun check generisk indhold for længere svar
+        generic_phrases = [
+            "det afhænger af", "det kan variere", "kontakt din forsikring",
+            "læs betingelserne", "det er vigtigt at", "husk at tjekke"
+        ]
+        
+        generic_count = sum(1 for phrase in generic_phrases if phrase in answer_lower)
+        if generic_count >= 4 and len(words) < 80:  # Endnu mere tilladende
+            return False, "Svaret er for generisk og giver ikke specifik information."
     
-    generic_count = sum(1 for phrase in generic_phrases if phrase in answer_lower)
-    if generic_count >= 3 and len(words) < 100:  # Øget threshold fra 2 til 3
-        return False, "Svaret er for generisk og giver ikke specifik information."
-    
-    # Additional check for extremely repetitive patterns
-    # Check if the same company/product name appears too many times
-    company_mentions = answer_lower.count("hdi") + answer_lower.count("pidl0919")
-    if company_mentions > 12:  # Øget fra 8 til 12
-        return False, "Svaret indeholder for mange gentagelser af samme information."
+    # Additional check for extremely repetitive patterns - kun for meget lange svar
+    if len(words) > 100:
+        company_mentions = answer_lower.count("hdi") + answer_lower.count("pidl0919")
+        if company_mentions > 20:  # Meget højere threshold
+            return False, "Svaret indeholder for mange gentagelser af samme information."
     
     return True, ""
+
+def _clean_context_for_llm(context: str) -> str:
+    """Clean context text to remove template pollution and improve LLM performance"""
+    if not context:
+        return context
+    
+    import re
+    
+    # Remove excessive whitespace and normalize line breaks
+    context = re.sub(r'\n\s*\n\s*\n+', '\n\n', context)  # Max double line breaks
+    context = re.sub(r'[ \t]+', ' ', context)  # Normalize spaces
+    
+    # Remove template artifacts that pollute LLM responses
+    artifacts_to_remove = [
+        r'PIDL\d+',  # Policy/document IDs
+        r'Dokument \d+:',  # Document headers added by our system
+        r'^\d+\.\s*$',  # Standalone numbered lines
+        r'^\*\s*$',  # Standalone bullet points
+        r'^\-\s*$',  # Standalone dashes
+        r'^\s*-+\s*$',  # Lines with just dashes
+        r'^\s*=+\s*$',  # Lines with just equals signs
+        r'^\s*\*+\s*$',  # Lines with just asterisks
+        r'Side \d+ af \d+',  # Page numbers
+        r'Version:.*',  # Version info
+        r'Dato:.*',  # Date info
+    ]
+    
+    for pattern in artifacts_to_remove:
+        context = re.sub(pattern, '', context, flags=re.MULTILINE)
+    
+    # Remove repetitive content that often appears in templates
+    # Find and remove patterns that repeat more than 3 times
+    lines = context.split('\n')
+    seen_lines = {}
+    filtered_lines = []
+    
+    for line in lines:
+        clean_line = line.strip()
+        if not clean_line:
+            filtered_lines.append(line)
+            continue
+            
+        # Normalize line for comparison (remove extra spaces, punctuation)
+        normalized = re.sub(r'[^\w\s]', '', clean_line.lower())
+        normalized = re.sub(r'\s+', ' ', normalized).strip()
+        
+        # Skip if we've seen this line too many times
+        seen_lines[normalized] = seen_lines.get(normalized, 0) + 1
+        if seen_lines[normalized] <= 3:  # Allow up to 3 repetitions
+            filtered_lines.append(line)
+    
+    context = '\n'.join(filtered_lines)
+    
+    # Final cleanup
+    context = re.sub(r'\n\s*\n\s*\n+', '\n\n', context)  # Remove excessive line breaks
+    context = context.strip()
+    
+    # Limit context length to prevent overwhelming the LLM
+    if len(context) > 8000:  # Reasonable limit for context
+        # Try to cut at a sentence boundary
+        context = context[:8000]
+        last_period = context.rfind('.')
+        if last_period > 6000:  # If we find a period reasonably close to the end
+            context = context[:last_period + 1]
+    
+    return context
 
 @timing_decorator
 def generate_answer(question: str, context: str) -> str:
@@ -192,9 +267,12 @@ def generate_answer(question: str, context: str) -> str:
         print(f"🟦 mistral_local: Bruger cached svar (længde: {len(cached_answer)})")
         return cached_answer
     
+    # Clean and optimize context for better LLM performance
+    cleaned_context = _clean_context_for_llm(context)
+    
     # Simplificeret prompt format der fungerer bedre med Mistral
     prompt = f"""Kontekst:
-{context}
+{cleaned_context}
 
 Spørgsmål: {question}
 
@@ -252,12 +330,27 @@ Svar på dansk:"""
             answer = _clean_repetitive_sentences(answer)
             print(f"🟦 mistral_local: Efter sentence cleanup - længde: {len(answer)} chars")
             
-            # Validér svarets kvalitet
+            # Validér svarets kvalitet - men vær mere tilladende
             is_quality, quality_error = _validate_answer_quality(answer, question)
             if not is_quality:
-                print(f"🔴 mistral_local: Svar kvalitet fejlede: {quality_error}")
-                # Give LLM one more chance with a cleaner prompt
-                return _generate_fallback_answer(question, context, quality_error)
+                print(f"� mistral_local: Svar kvalitet fejlede: {quality_error}")
+                
+                # Kun brug fallback for alvorlige fejl, ikke for simple kvalitetsproblemer
+                serious_errors = [
+                    "for mange gentagelser", "for mange gentagede sætninger", 
+                    "LLM indikerede selv usikkerhed", "for generisk"
+                ]
+                
+                is_serious_error = any(error in quality_error for error in serious_errors)
+                
+                if is_serious_error and len(answer) > 100:
+                    # Kun brug fallback for lange svar med alvorlige fejl
+                    print(f"🔴 mistral_local: Alvorlig kvalitetsfejl, bruger fallback")
+                    return _generate_fallback_answer(question, context, quality_error)
+                else:
+                    # For mindre fejl, acceptér svaret alligevel
+                    print(f"🟡 mistral_local: Mindre kvalitetsfejl, accepterer svaret alligevel")
+                    # Men log fejlen så vi kan forbedre kvalitetssjekket senere
             
             if not answer:
                 print(f"🔴 mistral_local: TOMT SVAR! Returnerer standard fejlbesked...")

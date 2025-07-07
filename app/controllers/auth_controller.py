@@ -19,9 +19,6 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 # 🔐 Password-hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-# 🔁 FastAPI-router
-router = APIRouter(prefix="/auth", tags=["Auth"])
-
 # 🎟 JWT access token generator
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
@@ -52,28 +49,3 @@ def get_current_user(
     if user is None:
         raise credentials_exception
     return user
-
-# 👤 Register-endpoint (bruges kun hvis du vil tillade tilmelding uden login)
-@router.post("/register")
-def register_user(
-    user: UserCreate = Body(...),
-    db: Session = Depends(get_session)
-):
-    existing_user = db.query(User).filter(User.username == user.username).first()
-    if existing_user:
-        raise HTTPException(status_code=400, detail="Brugernavn er allerede i brug.")
-
-    hashed_pw = pwd_context.hash(user.password)
-    new_user = User(
-        username=user.username,
-        hashed_password=hashed_pw,
-        role=user.role
-    )
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
-    return {
-        "message": "Bruger oprettet",
-        "username": new_user.username,
-        "role": new_user.role
-    }

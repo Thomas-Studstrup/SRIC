@@ -1,5 +1,9 @@
 # app/db/init_db.py
 
+import sys
+import os
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from sqlalchemy.exc import SQLAlchemyError
 from db.session import engine
 from db.base_class import Base

@@ -4,7 +4,7 @@ from typing import Literal
 class UserCreate(BaseModel):
     username: str
     password: str
-    role: Literal["admin", "medarbejder", "ekstern"]
+    role: Literal["admin", "user", "medarbejder", "ekstern"]
 
 class UserResponse(BaseModel):
     id: int
@@ -12,4 +12,4 @@ class UserResponse(BaseModel):
     role: str
 
     class Config:
-        orm_mode = True
+        from_attributes = True
