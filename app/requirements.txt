@@ -18,3 +18,5 @@ unstructured
 python-jose[cryptography]
 passlib[bcrypt]
 python-multipart
+pandas
+python-magic

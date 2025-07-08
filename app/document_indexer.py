@@ -1,5 +1,5 @@
 import os
-from langchain.document_loaders import PyPDFLoader, Docx2txtLoader, UnstructuredEmailLoader, UnstructuredExcelLoader
+from langchain_community.document_loaders import PyPDFLoader, Docx2txtLoader, UnstructuredEmailLoader, UnstructuredExcelLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from sentence_transformers import SentenceTransformer
 import chromadb

@@ -3,7 +3,6 @@ import time
 from functools import wraps
 import hashlib
 from functools import lru_cache
-
 # Initialiser lokal Mistral model
 llm = Llama(
     model_path="./models/mistral.q4_K_M.gguf",  # Ret hvis din sti er anderledes
@@ -260,12 +259,13 @@ def generate_answer(question: str, context: str) -> str:
         print(f"🔴 mistral_local: Validering fejlede: {validation_error}")
         return f"Jeg forstår ikke spørgsmålet. {validation_error}"
     
+    # TEMPORARILY DISABLE CACHE to fix issue with same answers
     # Check cache først
-    context_hash = hashlib.md5(context.encode()).hexdigest()
-    cached_answer = get_cached_answer(question, context_hash)
-    if cached_answer:
-        print(f"🟦 mistral_local: Bruger cached svar (længde: {len(cached_answer)})")
-        return cached_answer
+    # context_hash = hashlib.md5(context.encode()).hexdigest()
+    # cached_answer = get_cached_answer(question, context_hash)
+    # if cached_answer:
+    #     print(f"🟦 mistral_local: Bruger cached svar (længde: {len(cached_answer)})")
+    #     return cached_answer
     
     # Clean and optimize context for better LLM performance
     cleaned_context = _clean_context_for_llm(context)
@@ -282,16 +282,16 @@ Svar på dansk:"""
     
     try:
         print(f"🟦 mistral_local: Kalder llm...")
-        print(f"🟦 mistral_local: Kalder LLM med max_tokens=800...")
+        print(f"🟦 mistral_local: Kalder LLM med optimerede indstillinger...")
         
         # Optimeret for hastighed - justeret max_tokens og mindre aggressive stop tokens
         output = llm(
-            prompt=prompt,  # Ingen [INST] wrapping
-            max_tokens=800,  # Øget lidt fra 600 for at undgå for tidlig stop
-            temperature=0.1,  # Lavere for hurtigere og mere deterministisk output
-            top_p=0.9,  # Optimeret for hastighed
-            repeat_penalty=1.3,  # Højere for at undgå gentagelser hurtigere
-            stop=["\n\nSpørgsmål:", "\n\nKontekst:", "📚", "⚠️"],  # Fjernet aggressive stop tokens som "---" og "Konklusion:"
+            prompt=prompt,
+            max_tokens=400,      # Reducer fra 800 til 400
+            temperature=0.1,     # Reducer fra 0.1 til 0.05
+            top_p=0.9,          # Reducer fra 0.9 til 0.7
+            top_k=40,           # Behold 40
+            repeat_penalty=1.3,  # Reducer fra 1.3 til 1.1
             echo=False
         )
         
@@ -404,10 +404,11 @@ Svar på dansk:"""
                             print(f"🔴 mistral_local: Retry svar fejlede kvalitetsjeck")
                             return "Jeg kan ikke give et komplet svar på dette spørgsmål."
             
+            # TEMPORARILY DISABLE CACHE to fix issue with same answers
             # Cache det genererede svar
-            if len(answer) > 20:  # Kun cache meningsfulde svar
-                cache_answer(question, context_hash, answer)
-                print(f"🟦 mistral_local: Svar cached for fremtidige forespørgsler")
+            # if len(answer) > 20:  # Kun cache meningsfulde svar
+            #     cache_answer(question, context_hash, answer)
+            #     print(f"🟦 mistral_local: Svar cached for fremtidige forespørgsler")
             
             return answer
         else:
@@ -667,7 +668,6 @@ def _aggressive_repetition_cleanup(text: str) -> str:
                 sentence_counts[sentence_clean] = i
     
     return result.strip()
-
 
 # Kør test ved import
 print(f"🟦 mistral_local: Kører LLM test...")

@@ -1,8 +1,13 @@
 from fastapi import APIRouter, Request
+from pydantic import BaseModel
 from services.ask_classifier import classify_question
 from controllers import query_controller, compare_controller, analyse_controller
+from services.context_analyzer import analyze_question_context
 
 router = APIRouter()
+
+class QuestionRequest(BaseModel):
+    question: str
 
 @router.post("/")
 async def ask_router(request: Request):
@@ -47,3 +52,15 @@ async def ask_router(request: Request):
     else:
         print(f"🔴 Backend: Unknown question type: {qtype}")
         return {"error": "Unknown question type"}
+
+@router.post("/analyze")
+async def analyze_question(request: QuestionRequest):
+    """Debug endpoint til at analysere om spørgsmål kræver kontekst"""
+    
+    analysis = analyze_question_context(request.question, [])
+    
+    return {
+        "question": request.question,
+        "analysis": analysis,
+        "recommendation": analysis["recommendation"]
+    }
