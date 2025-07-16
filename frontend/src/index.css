@@ -11,6 +11,12 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+
+  /* Tilføj bredde for at matche client */
+  width: 100vw;
+  max-width: 1200px; /* Justér til din ønskede client-bredde */
+  margin-left: auto;
+  margin-right: auto;
 }
 
 a {

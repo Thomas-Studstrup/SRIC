@@ -10,7 +10,7 @@ from controllers.auth_controller import get_current_user
 from models.user_model import User
 from models.chat_model import Chat
 from models.message_model import Message
-from services.rag_service import process_contextual_query
+from services.conversation_service import process_contextual_query
 
 router = APIRouter(prefix="/chats", tags=["Chats"])
 

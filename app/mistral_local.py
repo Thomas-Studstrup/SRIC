@@ -5,7 +5,8 @@ import hashlib
 from functools import lru_cache
 # Initialiser lokal Mistral model
 llm = Llama(
-    model_path="./models/mistral.q4_K_M.gguf",  # Ret hvis din sti er anderledes
+    # model_path="./models/mistral.q4_K_M.gguf",  # Ret hvis din sti er anderledes
+    model_path="./models/mistral-7b-instruct-v0.2.Q5_K_M.gguf",  # Ret hvis din sti er anderledes
     n_ctx=10000,
     n_threads=8,
     verbose=False
@@ -249,178 +250,58 @@ def _clean_context_for_llm(context: str) -> str:
 
 @timing_decorator
 def generate_answer(question: str, context: str) -> str:
-    print(f"🟦 mistral_local: generate_answer kaldt")
-    print(f"🟦 mistral_local: Question: {question}")
-    print(f"🟦 mistral_local: Context længde: {len(context)} karakterer")
-    
-    # Validér spørgsmål og kontekst først
-    is_valid, validation_error = _validate_context_and_question(question, context)
-    if not is_valid:
-        print(f"🔴 mistral_local: Validering fejlede: {validation_error}")
-        return f"Jeg forstår ikke spørgsmålet. {validation_error}"
-    
-    # TEMPORARILY DISABLE CACHE to fix issue with same answers
-    # Check cache først
-    # context_hash = hashlib.md5(context.encode()).hexdigest()
-    # cached_answer = get_cached_answer(question, context_hash)
-    # if cached_answer:
-    #     print(f"🟦 mistral_local: Bruger cached svar (længde: {len(cached_answer)})")
-    #     return cached_answer
-    
-    # Clean and optimize context for better LLM performance
-    cleaned_context = _clean_context_for_llm(context)
-    
-    # Simplificeret prompt format der fungerer bedre med Mistral
+    print(f"🗭 mistral_local: generate_answer kaldt")
+    print(f"🗭 mistral_local: Question: {question}")
+    print(f"🗭 mistral_local: Context længde: {len(context)} karakterer")
+
+    # Validér input (du kan genaktivere validering hvis ønsket)
+    if not context.strip() or not question.strip():
+        return "Manglende kontekst eller spørgsmål."
+
+    # Rens kontekst (kan tilpasses)
+    MAX_CONTEXT_LENGTH = 8000
+    cleaned_context = context.strip()
+    if len(cleaned_context) > MAX_CONTEXT_LENGTH:
+        print(f"🗭 mistral_local: Kontekst for lang ({len(cleaned_context)}). Forkorter til {MAX_CONTEXT_LENGTH} tegn.")
+        cleaned_context = cleaned_context[:MAX_CONTEXT_LENGTH] + "\n... (kontekst forkortet)"
+
+
     prompt = f"""Kontekst:
 {cleaned_context}
 
 Spørgsmål: {question}
 
-Svar på dansk:"""
-    
-    print(f"🟦 mistral_local: Total prompt længde: {len(prompt)} karakterer")
-    
+Svar på dansk:
+"""
+
+    print(f"🗭 mistral_local: Total prompt længde: {len(prompt)} tegn")
+
+    print(f"🗭 mistral_local: Prompt preview:\n{prompt[:500]}\n---")
+
+
     try:
-        print(f"🟦 mistral_local: Kalder llm...")
-        print(f"🟦 mistral_local: Kalder LLM med optimerede indstillinger...")
-        
-        # Optimeret for hastighed - justeret max_tokens og mindre aggressive stop tokens
         output = llm(
             prompt=prompt,
-            max_tokens=400,      # Reducer fra 800 til 400
-            temperature=0.1,     # Reducer fra 0.1 til 0.05
-            top_p=0.9,          # Reducer fra 0.9 til 0.7
-            top_k=40,           # Behold 40
-            repeat_penalty=1.3,  # Reducer fra 1.3 til 1.1
+            max_tokens=600,
+            temperature=0.2,
+            top_p=0.9,
+            top_k=40,
+            repeat_penalty=1.2,
             echo=False
         )
-        
-        print(f"🟦 mistral_local: LLM output modtaget")
-        print(f"🟦 mistral_local: LLM output type: {type(output)}")
-        print(f"🟦 mistral_local: LLM output keys: {output.keys() if isinstance(output, dict) else 'Not a dict'}")
-        
-        # Debug hele response strukturen
-        print(f"🟦 mistral_local: Full response: {output}")
-        
+
         if isinstance(output, dict) and "choices" in output:
-            choice = output["choices"][0]
-            print(f"🟦 mistral_local: Choice keys: {choice.keys()}")
-            print(f"🟦 mistral_local: Choice: {choice}")
-            
-            text = choice.get("text", "")
-            print(f"🟦 mistral_local: Raw text: '{text}'")
-            print(f"🟦 mistral_local: Raw text længde: {len(text)} chars")
-            
-            answer = text.strip()
-            print(f"🟦 mistral_local: Ekstraheret answer længde: {len(answer)} chars")
-            print(f"🟦 mistral_local: Answer preview: {answer[:200]}...")
-            if len(answer) > 200:
-                print(f"🟦 mistral_local: Answer ending: ...{answer[-200:]}")
-            
-            # Early repetition detection and aggressive cleanup
-            answer = _aggressive_repetition_cleanup(answer)
-            print(f"🟦 mistral_local: Efter aggressiv cleanup - længde: {len(answer)} chars")
-            
-            # Check for repetitive content and truncate if found
-            if len(answer) > 500:
-                answer = _detect_and_fix_repetition(answer)
-                print(f"🟦 mistral_local: Efter repetition check - længde: {len(answer)} chars")
-            
-            # Additional cleanup for repetitive sentences
-            answer = _clean_repetitive_sentences(answer)
-            print(f"🟦 mistral_local: Efter sentence cleanup - længde: {len(answer)} chars")
-            
-            # Validér svarets kvalitet - men vær mere tilladende
-            is_quality, quality_error = _validate_answer_quality(answer, question)
-            if not is_quality:
-                print(f"� mistral_local: Svar kvalitet fejlede: {quality_error}")
-                
-                # Kun brug fallback for alvorlige fejl, ikke for simple kvalitetsproblemer
-                serious_errors = [
-                    "for mange gentagelser", "for mange gentagede sætninger", 
-                    "LLM indikerede selv usikkerhed", "for generisk"
-                ]
-                
-                is_serious_error = any(error in quality_error for error in serious_errors)
-                
-                if is_serious_error and len(answer) > 100:
-                    # Kun brug fallback for lange svar med alvorlige fejl
-                    print(f"🔴 mistral_local: Alvorlig kvalitetsfejl, bruger fallback")
-                    return _generate_fallback_answer(question, context, quality_error)
-                else:
-                    # For mindre fejl, acceptér svaret alligevel
-                    print(f"🟡 mistral_local: Mindre kvalitetsfejl, accepterer svaret alligevel")
-                    # Men log fejlen så vi kan forbedre kvalitetssjekket senere
-            
-            if not answer:
-                print(f"🔴 mistral_local: TOMT SVAR! Returnerer standard fejlbesked...")
-                return "Jeg forstår ikke spørgsmålet eller kan ikke finde tilstrækkelig information til at besvare det."
-                
-                # Fallback med helt simpelt format og validering
-                simple_response = llm(
-                    prompt=f"Sammenlign disse forsikringstyper baseret på informationen:\n\n{context[:1000]}\n\nSammenligning:",
-                    max_tokens=400,
-                    temperature=0.7,
-                    stop=["\n\n"],
-                    echo=False
-                )
-                
-                if isinstance(simple_response, dict) and "choices" in simple_response and len(simple_response["choices"]) > 0:
-                    fallback_text = simple_response["choices"][0]["text"].strip()
-                    if fallback_text:
-                        # Validér fallback svaret også
-                        is_fallback_quality, _ = _validate_answer_quality(fallback_text, question)
-                        if is_fallback_quality:
-                            answer = f"Baseret på de tilgængelige data: {fallback_text}"
-                        else:
-                            return "Jeg kan ikke give et tilfredsstillende svar baseret på de tilgængelige data."
-                    else:
-                        return "Jeg forstår ikke spørgsmålet eller mangler relevant information."
-                else:
-                    return "Der opstod en teknisk fejl. Prøv at omformulere dit spørgsmål."
-            
-            # Tjek om svaret er ufuldstændigt (ender med bare et nummer)
-            import re
-            if re.search(r'\d+\.\s*$', answer):
-                print(f"🔴 mistral_local: Ufuldstændigt svar detekteret! Prøver igen...")
-                # Prøv igen med længere max_tokens
-                retry_response = llm(
-                    prompt=prompt + "\n\nFuldfør alle 3 punkter komplet:",
-                    max_tokens=1000,
-                    temperature=0.2,
-                    stop=["\n\nSpørgsmål:", "\n\nKontekst:"],
-                    echo=False
-                )
-                
-                if isinstance(retry_response, dict) and "choices" in retry_response and len(retry_response["choices"]) > 0:
-                    retry_text = retry_response["choices"][0]["text"].strip()
-                    if retry_text and len(retry_text) > len(answer):
-                        # Validér retry svaret også
-                        is_retry_quality, _ = _validate_answer_quality(retry_text, question)
-                        if is_retry_quality:
-                            print(f"🟢 mistral_local: Retry gav bedre svar")
-                            answer = retry_text
-                        else:
-                            print(f"🔴 mistral_local: Retry svar fejlede kvalitetsjeck")
-                            return "Jeg kan ikke give et komplet svar på dette spørgsmål."
-            
-            # TEMPORARILY DISABLE CACHE to fix issue with same answers
-            # Cache det genererede svar
-            # if len(answer) > 20:  # Kun cache meningsfulde svar
-            #     cache_answer(question, context_hash, answer)
-            #     print(f"🟦 mistral_local: Svar cached for fremtidige forespørgsler")
-            
-            return answer
+            text = output["choices"][0].get("text", "").strip()
+            return text if text else "Model genererede ikke noget svar."
         else:
-            print("🔴 mistral_local: Uventet output format")
-            print(f"🔴 mistral_local: Output: {output}")
-            return "Fejl: Uventet output format fra LLM"
+            return "Uventet outputformat fra LLM."
+
     except Exception as e:
-        print(f"🔴 mistral_local: Fejl ved LLM kald: {e}")
-        print(f"🔴 mistral_local: Exception type: {type(e)}")
         import traceback
-        print(f"🔴 mistral_local: Traceback: {traceback.format_exc()}")
-        return f"Fejl ved generering af svar: {e}"
+        print("Fejl i generate_answer:", e)
+        print(traceback.format_exc())
+        return f"Der opstod en fejl under generering af svar: {e}"
+
 
 def test_llm_simple():
     """Test LLM med super simpelt prompt"""

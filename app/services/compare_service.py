@@ -1,5 +1,5 @@
 import re
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Union
 from vector_store import retrieve_similar_chunks
 from mistral_local import generate_answer
 
@@ -70,20 +70,29 @@ def _compare_terms_and_conditions(question: str) -> dict:
     print(f"🔶 compare_service: Sammenligner betingelser")
     
     # Hent relevante betingelser fra vector store
-    results = retrieve_similar_chunks(question, k=10)
+    results = retrieve_similar_chunks(question, top_k=10)
     documents_list = results.get("documents", [[]]) if results else [[]]
     documents = documents_list[0] if documents_list and len(documents_list) > 0 else []
     
+    metas = results.get("metadatas", [[]])
+    if metas and isinstance(metas[0], list):
+        for i, meta in enumerate(metas[0]):
+            print(f"📄 Dokument {i+1} metadata: {meta}")
+
     if not documents:
         return {
             "type": "compare",
             "subtype": "terms_comparison",
             "result": "Ingen relevante betingelser fundet til sammenligning.",
-            "question": question
+            "question": question,
+            "source_docs": documents
         }
     
     # Byg kontekst for sammenligning
     context = _build_comparison_context(documents, "betingelser")
+
+    print("🔍 Context preview:\n" + context[:500])
+
     
     # Generer sammenligning med LLM
     comparison_prompt = f"""
@@ -101,7 +110,7 @@ Lav en struktureret sammenligning der inkluderer:
 4. Vigtige punkter at være opmærksom på
 
 Sammenligning:"""
-    
+    print(f"🔍 Context preview:\n{context[:3000]}")
     comparison_result = generate_answer(question, comparison_prompt)
     
     return {
@@ -110,7 +119,8 @@ Sammenligning:"""
         "question": question,
         "result": comparison_result,
         "sources_count": len(documents),
-        "context_preview": context[:200] + "..." if len(context) > 200 else context
+        "context_preview": context[:200] + "..." if len(context) > 200 else context,
+        "source_docs": documents
     }
 
 def _assess_questionnaire_against_requirements(question: str) -> dict:
@@ -118,7 +128,7 @@ def _assess_questionnaire_against_requirements(question: str) -> dict:
     print(f"🔶 compare_service: Vurderer spørgeskema mod krav")
     
     # Hent relevante dokumenter (både spørgeskemaer og krav)
-    results = retrieve_similar_chunks(question, k=8)
+    results = retrieve_similar_chunks(question, top_k=8)
     documents_list = results.get("documents", [[]]) if results else [[]]
     documents = documents_list[0] if documents_list and len(documents_list) > 0 else []
     
@@ -127,10 +137,13 @@ def _assess_questionnaire_against_requirements(question: str) -> dict:
             "type": "compare",
             "subtype": "questionnaire_assessment", 
             "result": "Ingen relevante dokumenter fundet til vurdering.",
-            "question": question
+            "question": question,
+            "source_docs": documents
         }
     
     context = _build_comparison_context(documents, "spørgeskema_vurdering")
+
+    print("🔍 Context preview:\n" + context[:500])
     
     assessment_prompt = f"""
 Du skal vurdere spørgeskemaer mod krav og betingelser baseret på følgende kontekst.
@@ -156,14 +169,15 @@ Vurdering:"""
         "subtype": "questionnaire_assessment",
         "question": question,
         "result": assessment_result,
-        "sources_count": len(documents)
+        "sources_count": len(documents),
+        "source_docs": documents
     }
 
 def _compare_policies(question: str) -> dict:
     """Sammenlign forsikringspolicer."""
     print(f"🔶 compare_service: Sammenligner policer")
     
-    results = retrieve_similar_chunks(question, k=8)
+    results = retrieve_similar_chunks(question, top_k=8)
     documents_list = results.get("documents", [[]]) if results else [[]]
     documents = documents_list[0] if documents_list and len(documents_list) > 0 else []
     
@@ -172,10 +186,13 @@ def _compare_policies(question: str) -> dict:
             "type": "compare",
             "subtype": "policy_comparison",
             "result": "Ingen relevante policer fundet til sammenligning.",
-            "question": question
+            "question": question,
+            "source_docs": documents
         }
     
     context = _build_comparison_context(documents, "policer")
+
+    print("🔍 Context preview:\n" + context[:500])
     
     policy_prompt = f"""
 Du skal sammenligne forsikringspolicer baseret på følgende kontekst.
@@ -201,7 +218,8 @@ Sammenligning:"""
         "subtype": "policy_comparison",
         "question": question,
         "result": policy_result,
-        "sources_count": len(documents)
+        "sources_count": len(documents),
+        "source_docs": documents
     }
 
 def _compare_companies(question: str) -> dict:
@@ -209,7 +227,7 @@ def _compare_companies(question: str) -> dict:
     print(f"🔶 compare_service: Sammenligner selskaber")
     
     # Reduceret antal dokumenter for hastighed
-    results = retrieve_similar_chunks(question, k=6)  # Reduceret fra 10
+    results = retrieve_similar_chunks(question, top_k=6)  # Reduceret fra 10
     documents_list = results.get("documents", [[]]) if results else [[]]
     documents = documents_list[0] if documents_list and len(documents_list) > 0 else []
     
@@ -220,7 +238,8 @@ def _compare_companies(question: str) -> dict:
             "answer": "Ingen relevante selskabsoplysninger fundet til sammenligning.",
             "result": "Ingen relevante selskabsoplysninger fundet til sammenligning.",
             "question": question,
-            "sources_count": 0
+            "sources_count": 0,
+            "source_docs": documents
         }
     
     # Pre-filter dokumenter
@@ -228,6 +247,8 @@ def _compare_companies(question: str) -> dict:
     print(f"🔶 compare_service: Efter pre-filtering: {len(relevant_docs)} selskabsdokumenter")
     
     context = _build_comparison_context(relevant_docs, "selskaber")
+
+    print("🔍 Context preview:\n" + context[:500])
     
     # Kortere prompt for hurtigere processing
     company_prompt = f"""Sammenlign disse forsikringsselskaber kort:
@@ -263,7 +284,8 @@ Svar:"""
         "question": question,
         "answer": cleaned_result,
         "result": cleaned_result,
-        "sources_count": len(relevant_docs)
+        "sources_count": len(relevant_docs),
+        "source_docs": documents
     }
 
 def _general_comparison(question: str) -> dict:
@@ -271,7 +293,7 @@ def _general_comparison(question: str) -> dict:
     print(f"🔶 compare_service: Generel sammenligning")
     
     # Reduceret fra k=8 til k=4 for bedre performance
-    results = retrieve_similar_chunks(question, k=4)
+    results = retrieve_similar_chunks(question, top_k=4)
     print(f"🔶 compare_service: retrieve_similar_chunks returnerede: {type(results)}")
     print(f"🔶 compare_service: retrieve_similar_chunks keys: {results.keys() if results else 'None'}")
     
@@ -287,7 +309,8 @@ def _general_comparison(question: str) -> dict:
             "answer": "Ingen relevante dokumenter fundet til sammenligning.",
             "result": "Ingen relevante dokumenter fundet til sammenligning.",
             "question": question,
-            "sources_count": 0
+            "sources_count": 0,
+            "source_docs": documents
         }
     
     # Pre-filter dokumenter for relevans
@@ -299,6 +322,7 @@ def _general_comparison(question: str) -> dict:
         print(f"🔶 compare_service: Dokument {i+1} preview: {doc[:100]}...")
     
     context = _build_comparison_context(relevant_docs, "generel")
+    print("🔍 Context preview:\n" + context[:500])
     print(f"🔶 compare_service: Context bygget, længde: {len(context)} karakterer")
     print(f"🔶 compare_service: Context preview: {context[:200]}...")
     
@@ -344,32 +368,50 @@ Svar:"""
         "question": question,
         "answer": fixed_result,
         "result": fixed_result,
-        "sources_count": len(relevant_docs)
+        "sources_count": len(relevant_docs),
+        "source_docs": documents
     }
 
 def _build_comparison_context(documents: List[str], comparison_type: str) -> str:
-    """Byg kontekst optimeret til sammenligning."""
-    print(f"🔶 compare_service: Bygger kontekst for {comparison_type}")
-    
+    """
+    Bygger en optimeret kontekst til sammenligning ved at:
+    - Begrænse længde (for LLM input)
+    - Tage de mest repræsentative bidder fra hvert dokument
+    - Sikre variation og dækning på tværs af kilder
+    """
+    print(f"🔶 compare_service: Bygger kontekst for '{comparison_type}'")
+
     if not documents:
         return ""
-    
-    # Organisér dokumenter for bedre sammenligning
+
+    # Begræns maks antal dokumenter (hvis mange matches)
+    max_docs = 5
+    doc_snippet_len = 400  # hvor meget tekst per dokument
+    max_total_len = 3000   # total kontekst længde (char)
+
     context_parts = []
-    
-    for i, doc in enumerate(documents):
-        # Kortere dokumenter for hastighed - kun de første 800 karakterer
-        doc_excerpt = doc[:800] + "..." if len(doc) > 800 else doc
-        context_parts.append(f"--- Dokument {i+1} ---\n{doc_excerpt}\n")
-    
+    total_length = 0
+
+    for i, doc in enumerate(documents[:max_docs]):
+        snippet = doc.strip()[:doc_snippet_len]
+        context_entry = f"--- Dokument {i+1} ---\n{snippet}\n"
+        entry_length = len(context_entry)
+
+        if total_length + entry_length <= max_total_len:
+            context_parts.append(context_entry)
+            total_length += entry_length
+        else:
+            print(f"⚠️ Dokument {i+1} blev sprunget over for at holde konteksten under {max_total_len} tegn.")
+            break
+
     context = "\n".join(context_parts)
-    
-    # Kraftigt reduceret kontekst størrelse for hastighed
-    max_context_length = 2000  # Reduceret fra 4000 for hurtigere processing
-    if len(context) > max_context_length:
-        context = context[:max_context_length] + "\n... (kontekst forkortet for hastighed)"
-    
+
+    print(f"🔶 compare_service: Kontekst bygget – længde: {len(context)} tegn, {len(context_parts)} dokumenter brugt")
+    print(f"🔶 compare_service: Kontekst preview:\n{context[:500]}\n---")
+
     return context
+
+
 
 def _remove_repetitive_content(text: str) -> str:
     """Remove repetitive lines and sections from LLM output."""
