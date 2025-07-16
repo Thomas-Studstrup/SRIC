@@ -8,20 +8,19 @@ __pycache__/
 *.json
 *.pkl
 
-# FastAPI + Chroma
-app/models/*.gguf
-app/data/chroma/*
-
+# Modeller og data
+*.gguf
+app/data/chroma/**
 
 # Node + React
 frontend/node_modules/
 frontend/dist/
 frontend/.vite/
 
-# VS Code
+# VS Code og IDE
 .vscode/
-
-# OS og IDE
-.DS_Store
 .idea/
+
+# OS og editorfiler
+.DS_Store
 *.swp
