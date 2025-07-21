@@ -6,7 +6,7 @@ from functools import lru_cache
 # Initialiser lokal Mistral model
 llm = Llama(
     # model_path="./models/mistral.q4_K_M.gguf",  # Ret hvis din sti er anderledes
-    model_path="./models/mistral-7b-instruct-v0.2.Q5_K_M.gguf",  # Ret hvis din sti er anderledes
+    model_path="./models/mistral-7b-instruct-v0.2.Q5_K_S.gguf",  # Ret hvis din sti er anderledes
     n_ctx=10000,
     n_threads=8,
     verbose=False

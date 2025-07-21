@@ -1,7 +1,7 @@
 from llama_cpp import Llama
 
 # MODEL_PATH = "./models/mistral.q4_K_M.gguf"
-MODEL_PATH = "./models/mistral-7b-instruct-v0.2.Q5_K_M.gguf"
+MODEL_PATH = "./models/mistral-7b-instruct-v0.2.Q5_K_S.gguf"
 
 llm = Llama(
     model_path=MODEL_PATH,
