@@ -120,7 +120,7 @@ const Chat = () => {
   return (
     <div className="chat-container">
       <header className="chat-header">
-        <h1>SRIC Chat System</h1>
+        <h1>SRIC</h1>
         <div className="user-info">
           <span>Velkommen, {user?.username}</span>
           <button onClick={logout} className="logout-btn">Log ud</button>
@@ -204,7 +204,15 @@ const Chat = () => {
                     </div>
                     {message.sources && (
                       <div className="message-sources">
-                        <strong>Kilder:</strong> {JSON.parse(message.sources).join(', ')}
+                        <strong>Kilder:</strong>{' '}
+                        {JSON.parse(message.sources).map((src, i) => {
+                          // Hvis src ligner et filnavn, vis det, ellers vis som før
+                          if (typeof src === 'string' && src.match(/\.(pdf|docx|eml|xlsx)$/i)) {
+                            return <span key={i}>{src}{i < JSON.parse(message.sources).length - 1 ? ', ' : ''}</span>;
+                          } else {
+                            return <span key={i}>{src}{i < JSON.parse(message.sources).length - 1 ? ', ' : ''}</span>;
+                          }
+                        })}
                       </div>
                     )}
                   </div>
