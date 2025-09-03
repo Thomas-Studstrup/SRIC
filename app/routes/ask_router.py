@@ -2,7 +2,6 @@ from fastapi import APIRouter, Request
 from pydantic import BaseModel
 from services.ask_classifier import classify_question
 from controllers import query_controller, compare_controller, analyse_controller
-from services.context_analyzer import analyze_question_context
 
 router = APIRouter()
 

@@ -5,7 +5,7 @@ MODEL_PATH = "./models/mistral-7b-instruct-v0.2.Q5_K_S.gguf"
 
 llm = Llama(
     model_path=MODEL_PATH,
-    n_ctx=4096,
+    n_ctx=32768,
     n_threads=6,
     n_gpu_layers=20,
     n_batch=32,

@@ -3,7 +3,6 @@ import re
 from sentence_transformers import CrossEncoder
 from vector_store import retrieve_similar_chunks
 from mistral_local import generate_answer
-from services.context_analyzer import requires_context
 from utils.rag_service_utils import clean_document_content, safe_extract_results
 
 def get_relevant_documents(question: str, top_k: int = 8, relevance_threshold: float = 0.5) -> List[dict]:
