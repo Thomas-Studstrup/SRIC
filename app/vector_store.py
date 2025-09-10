@@ -3,10 +3,10 @@ import os
 import re
 from sentence_transformers import SentenceTransformer
 import chromadb
-from config import PERSIST_DIR, CHROMA_COLLECTION_NAME
+from config import PERSIST_DIR, CHROMA_COLLECTION_NAME, EMBEDDER
 
 # Initialiser model og client
-model = SentenceTransformer("BAAI/bge-large-en-v1.5")
+model = SentenceTransformer(EMBEDDER)
 client = chromadb.PersistentClient(path=PERSIST_DIR)
 collection = client.get_or_create_collection(name=CHROMA_COLLECTION_NAME)
 

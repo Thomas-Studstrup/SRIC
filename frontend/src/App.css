@@ -416,30 +416,47 @@ body {
   gap: 1rem;
 }
 
+/* Række = 100% bred; boblen (message-content) kan fylde op til 80% */
 .message {
   display: flex;
-  max-width: 80%;
+  width: 100%;
+  align-items: flex-end;
   animation: slideIn 0.3s ease-out;
 }
 
-.message.user-message {
-  align-self: flex-end;
-  justify-content: flex-end;
+.message + .message {
+  margin-top: 0.5rem;                 /* vertikal spacing mellem rækker */
 }
 
+/* Venstre/højre placering pr. afsender */
 .message.assistant-message {
-  align-self: flex-start;
-  justify-content: flex-start;
+  justify-content: flex-start;        /* venstre */
+  flex-direction: column;             /* hvis .message-sources er søskende -> under boblen */
+  align-items: flex-start;
 }
 
+.message.user-message {
+  justify-content: flex-end;          /* højre */
+}
+
+/* Selve boblen */
 .message-content {
+  max-width: 80%;
   background: white;
   padding: 1rem;
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   position: relative;
+  word-break: break-word;
 }
 
+@media (max-width: 640px) {
+  .message-content {
+    max-width: 90%;
+  }
+}
+
+/* Farver/tema pr. afsender */
 .user-message .message-content {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
@@ -450,6 +467,7 @@ body {
   border: 1px solid #e1e5e9;
 }
 
+/* Tekst og tid */
 .message-text {
   line-height: 1.5;
   white-space: pre-wrap;
@@ -462,13 +480,42 @@ body {
   text-align: right;
 }
 
-.message-sources {
-  margin-top: 0.5rem;
+/* Kilder: kun under assistant-svaret.
+   Virker både hvis .message-sources ligger inde i .message-content
+   eller som søskende til .message-content. */
+.user-message .message-sources {
+  display: none;
+}
+
+.assistant-message .message-sources {
+  display: block;
+  max-width: 80%;
+  margin-top: 0.35rem;                /* afstand under boblen */
   padding-top: 0.5rem;
   border-top: 1px solid #e1e5e9;
   font-size: 0.85rem;
   color: #666;
 }
+
+/* Indgangsanimation */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Respektér "reduce motion" */
+@media (prefers-reduced-motion: reduce) {
+  .message {
+    animation: none;
+  }
+}
+
 
 /* Typing Indicator */
 .typing-indicator {

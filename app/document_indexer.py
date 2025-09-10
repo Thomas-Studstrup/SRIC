@@ -1,29 +1,23 @@
 import os
 import uuid
 import torch
+from nltk.tokenize import sent_tokenize
+import chromadb
+from utils.file_reader import extract_text_from_file
+from config import PERSIST_DIR, CHROMA_COLLECTION_NAME, EMBEDDER
+from sentence_transformers import SentenceTransformer
 from langchain_community.document_loaders import (
     PyPDFLoader,
     Docx2txtLoader,
     UnstructuredEmailLoader,
     UnstructuredExcelLoader
 )
-# [NYT] Importer dynamisk embedder-switch og semantisk chunking
-from embedding_model import load_embedder
-from nltk.tokenize import sent_tokenize
-import chromadb
 
-# === Konfiguration ===
 DATA_DIR = "data"
-CHROMA_DIR = "chroma"
-# [NYT] Skift nemt embedder-størrelse her:
-EMBEDDER_SIZE = "small"  # "small" eller "large"
 
-# === Initialisering ===
-embedder = load_embedder(model_size=EMBEDDER_SIZE)  # [NYT] Dynamisk embedder
-chroma_client = chromadb.PersistentClient(path=CHROMA_DIR)
-# [NYT] Skiftet collection-navn for BGE-small
-COLLECTION_NAME = "documents-BGE-small"
-collection = chroma_client.get_or_create_collection(name=COLLECTION_NAME)
+embedder = SentenceTransformer(EMBEDDER)  # [NYT] Dynamisk embedder
+chroma_client = chromadb.PersistentClient(path=PERSIST_DIR)
+collection = chroma_client.get_or_create_collection(name=CHROMA_COLLECTION_NAME)
 
 # [NYT] Semantisk chunking-funktion
 def semantic_chunk(text, max_tokens=500):
@@ -76,28 +70,27 @@ for root, _, files in os.walk(DATA_DIR):
 
         try:
             docs = loader.load()
-            # [NYT] Semantisk chunking erstatter RecursiveCharacterTextSplitter
             texts = []
             for doc in docs:
-                # Hvis doc har .page_content (LangChain), brug den
                 content = getattr(doc, "page_content", str(doc)).strip()
                 if not content:
                     continue
                 for chunk in semantic_chunk(content, max_tokens=500):
                     if chunk.strip():
                         texts.append(chunk.strip())
+            # Fallback hvis ingen brugbare tekst-chunks
             if not texts:
-                print(f"[SKIPPED] {filepath} – ingen brugbare tekst-chunks")
-                continue
+                print(f"[FALLBACK] {filepath} – prøver file_reader util")
+                raw_content = extract_text_from_file(filepath)
+                texts = [chunk.strip() for chunk in semantic_chunk(raw_content, max_tokens=500) if chunk.strip()]
+                if not texts:
+                    print(f"[SKIPPED] {filepath} – ingen brugbare tekst-chunks selv med fallback")
+                    continue
 
-            document_id = str(uuid.uuid4())  # Unik ID for dokumentet
+            document_id = str(uuid.uuid4())
             passages = [f"passage: {text}" for text in texts]
-
-            # Embed i batch
             raw_embeddings = embedder.encode(passages, normalize_embeddings=True, batch_size=32)
-            # Sikrer at embeddings er en liste af float-lister
             embeddings = [list(map(float, e)) for e in raw_embeddings]
-
             ids = [f"{document_id}_{i}" for i in range(len(texts))]
             metadatas = [{
                 "document_id": str(document_id),
@@ -105,15 +98,12 @@ for root, _, files in os.walk(DATA_DIR):
                 "filename": str(filename),
                 "chunk_index": int(i)
             } for i in range(len(texts))]
-
             collection.add(
                 documents=texts,
                 embeddings=embeddings,
                 metadatas=metadatas,
                 ids=ids
             )
-
             print(f"[OK] Indexed: {filepath} ({len(texts)} chunks) – doc_id={document_id}")
-
         except Exception as e:
-            print(f"[SKIPPED] {filepath}: {e}")
+            print(f"[ERROR] {filepath}: {e}")

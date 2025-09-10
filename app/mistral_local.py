@@ -3,13 +3,16 @@ import time
 from functools import wraps
 import hashlib
 from functools import lru_cache
-# Initialiser lokal Mistral model
+from config import LLM_MODEL_PATH
+
 llm = Llama(
-    # model_path="./models/mistral.q4_K_M.gguf",  # Ret hvis din sti er anderledes
-    model_path="./models/mistral-7b-instruct-v0.2.Q5_K_S.gguf",  # Ret hvis din sti er anderledes
-    n_ctx=10000,
-    n_threads=8,
-    verbose=False
+    model_path=LLM_MODEL_PATH,
+    n_ctx=32768,
+    n_threads=6,
+    n_gpu_layers=20,
+    n_batch=32,
+    use_mmap=True,
+    use_mlock=True
 )
 
 def timing_decorator(func):
