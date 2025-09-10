@@ -31,11 +31,11 @@ def retrieve_similar_chunks(query: str, top_k: int = 5):
             docs = results['documents']
             distances = results.get('distances', [[]])
             print(f"🔷 vector_store: Documents struktur: {type(docs)}")
-            print(f"🔷 vector_store: Antal document grupper: {len(docs) if docs else 0}")
-            if docs and len(docs) > 0:
+            print(f"🔷 vector_store: Antal document grupper: {len(docs) if docs is not None else 0}")
+            if docs is not None and len(docs) > 0:
                 print(f"🔷 vector_store: Antal dokumenter i første gruppe: {len(docs[0])}")
-                print(f"🔷 vector_store: Distances: {distances[0] if distances and distances[0] else 'Ingen distances'}")
-                if docs[0]:
+                print(f"🔷 vector_store: Distances: {distances[0] if distances is not None and len(distances) > 0 and len(distances[0]) > 0 else 'Ingen distances'}")
+                if len(docs[0]) > 0:
                     print(f"🔷 vector_store: Første dokument (100 chars): {docs[0][0][:100]}...")
         
         return results

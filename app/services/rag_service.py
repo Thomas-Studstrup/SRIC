@@ -449,11 +449,11 @@ def safe_extract_results(results):
         metadatas_list = results.get("metadatas", [[]])
         distances_list = results.get("distances", [[]])
         
-        if documents_list and len(documents_list) > 0:
+        if documents_list is not None and len(documents_list) > 0:
             documents = documents_list[0]
-        if metadatas_list and len(metadatas_list) > 0:
+        if metadatas_list is not None and len(metadatas_list) > 0:
             metadatas = metadatas_list[0]
-        if distances_list and len(distances_list) > 0:
+        if distances_list is not None and len(distances_list) > 0:
             distances = distances_list[0]
     
     return documents, metadatas, distances

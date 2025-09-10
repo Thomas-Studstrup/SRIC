@@ -72,7 +72,7 @@ def _compare_terms_and_conditions(question: str) -> dict:
     # Hent relevante betingelser fra vector store
     results = retrieve_similar_chunks(question, k=10)
     documents_list = results.get("documents", [[]]) if results else [[]]
-    documents = documents_list[0] if documents_list and len(documents_list) > 0 else []
+    documents = documents_list[0] if documents_list is not None and len(documents_list) > 0 else []
     
     if not documents:
         return {
@@ -120,7 +120,7 @@ def _assess_questionnaire_against_requirements(question: str) -> dict:
     # Hent relevante dokumenter (både spørgeskemaer og krav)
     results = retrieve_similar_chunks(question, k=8)
     documents_list = results.get("documents", [[]]) if results else [[]]
-    documents = documents_list[0] if documents_list and len(documents_list) > 0 else []
+    documents = documents_list[0] if documents_list is not None and len(documents_list) > 0 else []
     
     if not documents:
         return {
@@ -165,7 +165,7 @@ def _compare_policies(question: str) -> dict:
     
     results = retrieve_similar_chunks(question, k=8)
     documents_list = results.get("documents", [[]]) if results else [[]]
-    documents = documents_list[0] if documents_list and len(documents_list) > 0 else []
+    documents = documents_list[0] if documents_list is not None and len(documents_list) > 0 else []
     
     if not documents:
         return {
@@ -211,7 +211,7 @@ def _compare_companies(question: str) -> dict:
     # Reduceret antal dokumenter for hastighed
     results = retrieve_similar_chunks(question, k=6)  # Reduceret fra 10
     documents_list = results.get("documents", [[]]) if results else [[]]
-    documents = documents_list[0] if documents_list and len(documents_list) > 0 else []
+    documents = documents_list[0] if documents_list is not None and len(documents_list) > 0 else []
     
     if not documents:
         return {
@@ -276,7 +276,7 @@ def _general_comparison(question: str) -> dict:
     print(f"🔶 compare_service: retrieve_similar_chunks keys: {results.keys() if results else 'None'}")
     
     documents_list = results.get("documents", [[]]) if results else [[]]
-    documents = documents_list[0] if documents_list and len(documents_list) > 0 else []
+    documents = documents_list[0] if documents_list is not None and len(documents_list) > 0 else []
     
     print(f"🔶 compare_service: Antal dokumenter fundet: {len(documents)}")
     
