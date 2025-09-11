@@ -62,68 +62,35 @@ def get_relevant_documents(question: str, top_k: int = 8, relevance_threshold=0.
         print("\u26A0\ufe0f Ingen dokumenter fundet")
         return []
 
-    # Step 3: Reranking med CrossEncoder
-    print(f"\U0001F501 Reranking {len(documents)} dokumenter med cross-encoder")
-    reranker = CrossEncoder("cross-encoder/ms-marco-MiniLM-L-6-v2")
-    rerank_input = [(question, doc) for doc in documents]
-    rerank_scores = reranker.predict(rerank_input)
-    # Gør robust mod NumPy-typer senere i koden
-    rerank_scores = np.asarray(rerank_scores).astype(float).reshape(-1).tolist()
+    # Find alle dokument_id'er for relevante chunks
+    document_ids = set()
+    filenames = {}
+    for meta in metadatas:
+        if isinstance(meta, dict):
+            doc_id = meta.get("document_id")
+            filename = meta.get("filename")
+            if doc_id:
+                document_ids.add(doc_id)
+                if filename:
+                    filenames[doc_id] = filename
 
-    combined = list(zip(documents, metadatas, distances, rerank_scores))
-    combined.sort(key=lambda x: x[3], reverse=True)
-
-    all_docs: List[dict] = []
+    # Hent alle chunks for hvert dokument og saml dem
+    from document_indexer import get_all_chunks_for_document
     filtered_docs: List[dict] = []
-
-    for i, (doc, meta, dist, score) in enumerate(combined):
-        relevance_score = float(score)
-        cleaned_content = clean_document_content(doc)
-
-        print(f"\U0001F4C4 Dokument {i+1}: distance={dist}, rerank_score={score:.3f}")
-        preview = (cleaned_content or "")[:150]
-        print(f"\U0001F4C4 Dokument {i+1} preview: {preview}...")
-
-        if policy_numbers:
-            lc = (cleaned_content or "").lower()
-            for policy_num in policy_numbers:
-                if policy_num in lc:
-                    relevance_score += 0.5
-                    print(f"\U0001F3AF Dokument {i+1} indeholder policenummer {policy_num}, boost til relevance: {relevance_score:.3f}")
-
-        if len((cleaned_content or "").strip()) < 50:
-            print(f"⚠️ Dokument {i+1} for kort efter rensning, springer over")
-            continue
-
+    for doc_id in document_ids:
+        chunks = get_all_chunks_for_document(doc_id)
+        full_content = "\n\n".join([clean_document_content(chunk) for chunk in chunks])
+        meta = {"document_id": doc_id, "filename": filenames.get(doc_id, "ukendt")}
         doc_info = {
-            "content": cleaned_content,
+            "content": full_content,
             "metadata": meta,
-            "relevance_score": relevance_score,
-            "distance": dist
+            "relevance_score": 1.0,  # Kan evt. beregnes som max af relevante chunks
+            "distance": None
         }
+        filtered_docs.append(doc_info)
+        print(f"✅ Inkluderer hele dokumentet: {filenames.get(doc_id, 'ukendt')}")
 
-        all_docs.append(doc_info)
-
-        if threshold_enabled and norm_threshold is not None:
-            if relevance_score >= norm_threshold:
-                filtered_docs.append(doc_info)
-                print(f"✅ Dokument {i+1} inkluderet (relevance: {relevance_score:.3f})")
-            else:
-                print(f"❌ Dokument {i+1} filtreret ud (relevance: {relevance_score:.3f} < {norm_threshold})")
-        else:
-            # Ingen tærskel => inkluder alle (vi beholder stadig fallback nedenfor for sikkerhed)
-            filtered_docs.append(doc_info)
-            print(f"✅ Dokument {i+1} inkluderet (tærskel deaktiveret, relevance: {relevance_score:.3f})")
-
-    # Fallback: hvis intet slap igennem (kan ske ved hård tærskel)
-    if not filtered_docs and all_docs:
-        all_docs.sort(key=lambda x: x['relevance_score'], reverse=True)
-        filtered_docs = all_docs[:3]
-        print(f"🔄 Fallback: Inkluderer de {len(filtered_docs)} bedste dokumenter")
-        for j, doc in enumerate(filtered_docs):
-            print(f"🔄 Fallback dokument {j+1}: relevance={doc['relevance_score']:.3f}")
-
-    print(f"✅ Fandt {len(filtered_docs)} relevante dokumenter (filteret fra {len(documents)})")
+    print(f"✅ Fandt {len(filtered_docs)} relevante dokumenter (samlet fra chunks)")
     return filtered_docs
 
 
@@ -145,7 +112,8 @@ def generate_answer_with_sources(question: str, documents: List[dict], min_sourc
         context_parts.append(content)
         meta = doc.get("metadata", {}) or {}
         score = float(doc.get("relevance_score", 0.0) or 0.0)
-        src = meta.get("source", f"Dokument {i+1}")
+        # Brug filnavn som kilde hvis muligt
+        src = meta.get("filename") or meta.get("source") or f"Dokument {i+1}"
         potential_sources.append({
             'source': src,
             'relevance_score': score,

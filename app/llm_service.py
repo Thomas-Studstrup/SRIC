@@ -19,4 +19,4 @@ def ask_llm(prompt: str) -> str:
         temperature=0.7,
         stop=["</s>"]
     )
-    return response["choices"][0]["text"].strip()
+    return response["choices"][0]["text"].strip() # type: ignore
