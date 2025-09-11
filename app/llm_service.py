@@ -12,9 +12,10 @@ llm = Llama(
 )
 
 def ask_llm(prompt: str) -> str:
+    from config import get_max_tokens
     response = llm(
         prompt=f"<s>[INST] {prompt} [/INST]",
-        max_tokens=10000,  # Øget fra 512 til 10000 for længere svar
+        max_tokens=get_max_tokens("llm_service", 10000),
         temperature=0.7,
         stop=["</s>"]
     )

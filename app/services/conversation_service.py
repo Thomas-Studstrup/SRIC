@@ -1,7 +1,7 @@
 import re
 from typing import List, Tuple
 from services.rag_service import get_relevant_documents, generate_answer_with_sources
-from services.compare_service import handle_comparison
+from services.compare_service import compare
 
 
 def detect_comparison_query(question: str) -> bool:
@@ -23,7 +23,7 @@ def process_contextual_query(question: str, relevance_threshold: float = 0.6) ->
 
     if is_comparison:
         print("\U0001F50D Sammenligning detekteret - bruger compare_service.handle_comparison")
-        result_dict = handle_comparison(contextual_question)
+        result_dict = compare(contextual_question)
         source_docs = result_dict.get("source_docs", [])
         
         sources = [

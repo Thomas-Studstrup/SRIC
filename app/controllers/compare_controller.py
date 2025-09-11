@@ -1,14 +1,18 @@
-from services.compare_service import handle_comparison
+# before
+# from services.compare_service import handle_comparison
+# result = handle_comparison(question)
+
+# after
+from services.compare_service import compare
 
 async def handle(question: str):
     print(f"🟤 compare_controller: Modtog question: '{question}'")
-    
     try:
-        result = handle_comparison(question)
-        print(f"🟤 compare_controller: handle_comparison returnerede")
+        result = compare(question)  # synkront kald
+        print(f"🟤 compare_controller: compare returnerede")
         print(f"🟤 compare_controller: Result type: {type(result)}")
         print(f"🟤 compare_controller: Result keys: {result.keys() if isinstance(result, dict) else 'Not dict'}")
-        
+
         if isinstance(result, dict):
             if "answer" in result:
                 print(f"🟤 compare_controller: answer længde: {len(result['answer'])} karakterer")
@@ -16,7 +20,7 @@ async def handle(question: str):
             if "result" in result:
                 print(f"🟤 compare_controller: result længde: {len(result['result'])} karakterer")
                 print(f"🟤 compare_controller: result preview: {result['result'][:200]}...")
-        
+
         print(f"🟤 compare_controller: Returnerer result")
         return result
     except Exception as e:

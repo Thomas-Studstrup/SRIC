@@ -20,7 +20,10 @@ chroma_client = chromadb.PersistentClient(path=PERSIST_DIR)
 collection = chroma_client.get_or_create_collection(name=CHROMA_COLLECTION_NAME)
 
 # [NYT] Semantisk chunking-funktion
-def semantic_chunk(text, max_tokens=500):
+from config import get_max_tokens
+def semantic_chunk(text, max_tokens=None):
+    if max_tokens is None:
+        max_tokens = get_max_tokens("document_indexer_chunk", 500)
     """
     Splitter tekst i sætninger og samler dem til chunks på ca. 400–600 tokens.
     Splitter aldrig midt i en sætning.
@@ -75,14 +78,14 @@ for root, _, files in os.walk(DATA_DIR):
                 content = getattr(doc, "page_content", str(doc)).strip()
                 if not content:
                     continue
-                for chunk in semantic_chunk(content, max_tokens=500):
+                for chunk in semantic_chunk(content):
                     if chunk.strip():
                         texts.append(chunk.strip())
             # Fallback hvis ingen brugbare tekst-chunks
             if not texts:
                 print(f"[FALLBACK] {filepath} – prøver file_reader util")
                 raw_content = extract_text_from_file(filepath)
-                texts = [chunk.strip() for chunk in semantic_chunk(raw_content, max_tokens=500) if chunk.strip()]
+                texts = [chunk.strip() for chunk in semantic_chunk(raw_content) if chunk.strip()]
                 if not texts:
                     print(f"[SKIPPED] {filepath} – ingen brugbare tekst-chunks selv med fallback")
                     continue
