@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate, Link } from 'react-router-dom';
 
@@ -6,8 +6,23 @@ const Register = () => {
   const [userData, setUserData] = useState({
     username: '',
     password: '',
-    role: 'user',
+    role: '',
   });
+  const [roles, setRoles] = useState([]);
+  useEffect(() => {
+    // Hent roller fra backend
+    fetch('/auth/roles')
+      .then(res => res.json())
+      .then(data => {
+        console.log('Roller fra backend:', data);
+        setRoles(data);
+        setUserData(u => ({ ...u, role: data[0] || '' }));
+      })
+      .catch((err) => {
+        console.error('Fejl ved hentning af roller:', err);
+        setRoles(['user', 'admin']);
+      });
+  }, []);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
@@ -91,9 +106,11 @@ const Register = () => {
               name="role"
               value={userData.role}
               onChange={handleChange}
+              required
             >
-              <option value="user">Bruger</option>
-              <option value="admin">Administrator</option>
+              {roles.map(role => (
+                <option key={role} value={role}>{role}</option>
+              ))}
             </select>
           </div>
 

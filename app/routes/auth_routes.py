@@ -11,9 +11,16 @@ from services.auth_service import (
     create_access_token,
     get_password_hash
 )
-from controllers.auth_controller import get_current_user
+from services.user_service import get_all_roles
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
+
+# 👤 GET CURRENT USER
+@router.get("/roles")
+def get_roles():
+    """Returnerer alle mulige brugerroller til frontend."""
+    return get_all_roles()
+from controllers.auth_controller import get_current_user
 
 # 🔐 LOGIN
 @router.post("/login")

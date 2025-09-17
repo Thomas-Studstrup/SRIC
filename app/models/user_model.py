@@ -4,9 +4,11 @@ from db.base_class import Base  # 👈 brug fælles base
 import enum
 
 class UserRole(str, enum.Enum):
-    admin = "admin"
-    medarbejder = "medarbejder"
-    ekstern = "ekstern"
+    admin = "Admin"
+    medarbejder = "Medarbejder"
+    ekstern = "Ekstern"
+    client_service = "Client Service"
+    business_management = "Business Management"
 
 class User(Base):
     __tablename__ = "users"
