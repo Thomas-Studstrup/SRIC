@@ -121,13 +121,13 @@ const Chat = () => {
     <div className="chat-container">
       <header className="chat-header">
         <div className="chat-header-content">
-          <h1>SRIC</h1>
+          <h1>Special Risk Intelligence Center</h1>
           <div className="chat-header-right">
             <div className="user-info">
-              <span>Velkommen, {user?.username}</span>
+              <span>Velkommen {user?.username}</span>
               <button onClick={logout} className="logout-btn">Log ud</button>
             </div>
-            <img src="/logo.jpg" alt="Logo" className="chat-header-logo" />
+            
           </div>
         </div>
       </header>
@@ -136,7 +136,7 @@ const Chat = () => {
         {/* Sidebar with chat list */}
         <div className="chat-sidebar">
           <div className="sidebar-header">
-            <h3>Mine Chats</h3>
+            <img src="/logo.jpg" alt="Logo" className="chat-header-logo" />
             <button 
               onClick={() => setShowNewChatForm(true)}
               className="new-chat-btn"
@@ -202,7 +202,7 @@ const Chat = () => {
                     className={`message ${message.role === 'user' ? 'user-message' : 'assistant-message'}`}
                   >
                     <div className="message-content">
-                      <div className="message-text">{message.content}</div>
+                      <div className="message-text">{message.role === 'assistant' ? message.content.replace(/^Svar:\s*/, '') : message.content}</div>
                       <div className="message-time">
                         {formatTime(message.created_at)}
                       </div>
