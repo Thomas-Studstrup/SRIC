@@ -120,10 +120,15 @@ const Chat = () => {
   return (
     <div className="chat-container">
       <header className="chat-header">
-        <h1>SRIC</h1>
-        <div className="user-info">
-          <span>Velkommen, {user?.username}</span>
-          <button onClick={logout} className="logout-btn">Log ud</button>
+        <div className="chat-header-content">
+          <h1>SRIC</h1>
+          <div className="chat-header-right">
+            <div className="user-info">
+              <span>Velkommen, {user?.username}</span>
+              <button onClick={logout} className="logout-btn">Log ud</button>
+            </div>
+            <img src="/logo.jpg" alt="Logo" className="chat-header-logo" />
+          </div>
         </div>
       </header>
 
