@@ -11,6 +11,8 @@ __pycache__/
 # Modeller og data
 *.gguf
 app/data/chroma/**
+app/data/chroma/*
+app/data/chroma/**/*
 
 # Node + React
 frontend/node_modules/
